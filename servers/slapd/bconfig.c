@@ -2008,10 +2008,19 @@ config_generic(ConfigArgs *c) {
 			break;
 
 		case CFG_IX_INTLEN:
-			if ( c->value_int < SLAP_INDEX_INTLEN_DEFAULT )
+			if ( c->value_int < SLAP_INDEX_INTLEN_DEFAULT ) {
+				snprintf( c->cr_msg, sizeof(c->cr_msg),
+					"index_intlen=%d smaller than minimum value %d: Using minimum.",
+					c->value_int, SLAP_INDEX_INTLEN_DEFAULT);
+				Debug(LDAP_DEBUG_ANY, "%s: %s.\n", c->log, c->cr_msg, 0);
 				c->value_int = SLAP_INDEX_INTLEN_DEFAULT;
-			else if ( c->value_int > 255 )
+			} else if ( c->value_int > 255 ) {
+				snprintf( c->cr_msg, sizeof(c->cr_msg),
+					"index_intlen=%d larger than maximum value 255: Using maximum.",
+					c->value_int);
+				Debug(LDAP_DEBUG_ANY, "%s: %s.\n", c->log, c->cr_msg, 0);
 				c->value_int = 255;
+			}
 			index_intlen = c->value_int;
 			index_intlen_strlen = SLAP_INDEX_INTLEN_STRLEN(
 				index_intlen );

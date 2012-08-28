@@ -510,6 +510,7 @@ Specify the key length for ordered integer indices. The most significant
 bytes of the binary integer will be used for index keys. The default
 value is 4, which provides exact indexing for 31 bit values.
 A floating point representation is used to index too large values.
+The minimum allowed value is 4 and the maximum allowed value is 255.
 .TP
 .B index_substr_if_minlen <integer>
 Specify the minimum length for subinitial and subfinal indices. An
