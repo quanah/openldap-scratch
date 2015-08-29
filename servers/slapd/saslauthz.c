@@ -1391,6 +1391,16 @@ int slap_sasl_regexp_config( const char *match, const char *replace )
 	return rc;
 }
 
+static void
+slap_sasl_regexp_destroy_one( int n )
+{
+	ch_free( SaslRegexp[ n ].sr_match );
+	ch_free( SaslRegexp[ n ].sr_replace );
+#ifndef SLAP_AUTH_REWRITE
+	regfree( &SaslRegexp[ n ].sr_workspace );
+#endif /* ! SLAP_AUTH_REWRITE */
+}
+
 void
 slap_sasl_regexp_destroy( void )
 {
@@ -1398,19 +1408,50 @@ slap_sasl_regexp_destroy( void )
 		int	n;
 
 		for ( n = 0; n < nSaslRegexp; n++ ) {
-			ch_free( SaslRegexp[ n ].sr_match );
-			ch_free( SaslRegexp[ n ].sr_replace );
-#ifndef SLAP_AUTH_REWRITE
-			regfree( &SaslRegexp[ n ].sr_workspace );
-#endif /* SLAP_AUTH_REWRITE */
+			slap_sasl_regexp_destroy_one( n );
 		}
 
 		ch_free( SaslRegexp );
+		SaslRegexp = NULL;
+		nSaslRegexp = 0;
 	}
 
 #ifdef SLAP_AUTH_REWRITE
 	slap_sasl_rewrite_destroy();
 #endif /* SLAP_AUTH_REWRITE */
+}
+
+int slap_sasl_regexp_delete( int valx )
+{
+	int rc = 0;
+
+	if ( valx > nSaslRegexp ) {
+		rc = 1;
+	} else if ( valx < 0 || nSaslRegexp == 1 ) {
+		slap_sasl_regexp_destroy();
+	} else {
+		int i;
+
+		slap_sasl_regexp_destroy_one( valx );
+		nSaslRegexp--;
+
+		for ( i = valx; i < nSaslRegexp; i++ ) {
+			SaslRegexp[ i ] = SaslRegexp[ i + 1 ];
+		}
+
+#ifdef SLAP_AUTH_REWRITE
+		slap_sasl_rewrite_destroy();
+		for ( i = 0; i < nSaslRegexp; i++ ) {
+			rc = slap_sasl_regexp_rewrite_config( "sasl-regexp", 0,
+					SaslRegexp[ i ].sr_match,
+					SaslRegexp[ i ].sr_replace,
+					AUTHID_CONTEXT );
+			assert( rc == 0 );
+		}
+#endif /* SLAP_AUTH_REWRITE */
+	}
+
+	return rc;
 }
 
 void slap_sasl_regexp_unparse( BerVarray *out )

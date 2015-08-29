@@ -1386,7 +1386,6 @@ config_generic(ConfigArgs *c) {
 		/* no-ops, requires slapd restart */
 		case CFG_PLUGIN:
 		case CFG_MODLOAD:
-		case CFG_AZREGEXP:
 		case CFG_REWRITE:
 			snprintf(c->log, sizeof( c->log ), "change requires slapd restart");
 			break;
@@ -1426,6 +1425,11 @@ config_generic(ConfigArgs *c) {
 			}
 			break;
 #endif /* SLAP_AUXPROP_DONTUSECOPY */
+
+		case CFG_AZREGEXP:
+			rc = slap_sasl_regexp_delete( c->valx );
+			break;
+
 		case CFG_SALT:
 			ch_free( passwd_salt );
 			passwd_salt = NULL;
