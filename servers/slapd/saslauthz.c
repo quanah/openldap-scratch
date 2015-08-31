@@ -1316,40 +1316,48 @@ slap_sasl_rewrite_destroy( void )
 
 static int
 slap_sasl_regexp_rewrite_config(
-		const char	*fname,
-		int		lineno,
-		const char	*match,
-		const char	*replace,
-		const char	*context )
+		struct rewrite_info	**rwinfo,
+		const char		*fname,
+		int			lineno,
+		const char		*match,
+		const char		*replace,
+		const char		*context )
 {
 	int	rc;
 	char	*argvRule[] = { "rewriteRule", NULL, NULL, ":@", NULL };
+	struct rewrite_info *rw = *rwinfo;
 
 	/* init at first call */
-	if ( sasl_rwinfo == NULL ) {
+	if ( rw == NULL ) {
 		char *argvEngine[] = { "rewriteEngine", "on", NULL };
 		char *argvContext[] = { "rewriteContext", NULL, NULL };
 
 		/* initialize rewrite engine */
-		sasl_rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
+		rw = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
 
 		/* switch on rewrite engine */
-		rc = rewrite_parse( sasl_rwinfo, fname, lineno, 2, argvEngine );
+		rc = rewrite_parse( rw, fname, lineno, 2, argvEngine );
 		if (rc != LDAP_SUCCESS) {
-			return rc;
+			goto out;
 		}
 
 		/* create generic authid context */
 		argvContext[1] = AUTHID_CONTEXT;
-		rc = rewrite_parse( sasl_rwinfo, fname, lineno, 2, argvContext );
+		rc = rewrite_parse( rw, fname, lineno, 2, argvContext );
 		if (rc != LDAP_SUCCESS) {
-			return rc;
+			goto out;
 		}
 	}
 
 	argvRule[1] = (char *)match;
 	argvRule[2] = (char *)replace;
-	rc = rewrite_parse( sasl_rwinfo, fname, lineno, 4, argvRule );
+	rc = rewrite_parse( rw, fname, lineno, 4, argvRule );
+out:
+	if (rc == LDAP_SUCCESS) {
+		*rwinfo = rw;
+	} else {
+		rewrite_info_delete( &rw );
+	}
 
 	return rc;
 }
@@ -1366,7 +1374,7 @@ int slap_sasl_regexp_config( const char *match, const char *replace )
 	reg = &SaslRegexp[nSaslRegexp];
 
 #ifdef SLAP_AUTH_REWRITE
-	rc = slap_sasl_regexp_rewrite_config( "sasl-regexp", 0,
+	rc = slap_sasl_regexp_rewrite_config( &sasl_rwinfo, "sasl-regexp", 0,
 			match, replace, AUTHID_CONTEXT );
 #else /* ! SLAP_AUTH_REWRITE */
 
@@ -1442,7 +1450,7 @@ int slap_sasl_regexp_delete( int valx )
 #ifdef SLAP_AUTH_REWRITE
 		slap_sasl_rewrite_destroy();
 		for ( i = 0; i < nSaslRegexp; i++ ) {
-			rc = slap_sasl_regexp_rewrite_config( "sasl-regexp", 0,
+			rc = slap_sasl_regexp_rewrite_config( &sasl_rwinfo, "sasl-regexp", 0,
 					SaslRegexp[ i ].sr_match,
 					SaslRegexp[ i ].sr_replace,
 					AUTHID_CONTEXT );
