@@ -1363,18 +1363,29 @@ out:
 }
 #endif /* SLAP_AUTH_REWRITE */
 
-int slap_sasl_regexp_config( const char *match, const char *replace )
+int slap_sasl_regexp_config( const char *match, const char *replace, int valx )
 {
-	int rc;
+	int i, rc;
 	SaslRegexp_t *reg;
+	struct rewrite_info *rw = NULL;
 
 	SaslRegexp = (SaslRegexp_t *) ch_realloc( (char *) SaslRegexp,
 	  (nSaslRegexp + 1) * sizeof(SaslRegexp_t) );
 
-	reg = &SaslRegexp[nSaslRegexp];
+	if ( valx < 0 || valx > nSaslRegexp )
+		valx = nSaslRegexp;
+	reg = &SaslRegexp[valx];
 
 #ifdef SLAP_AUTH_REWRITE
-	rc = slap_sasl_regexp_rewrite_config( &sasl_rwinfo, "sasl-regexp", 0,
+	for ( i = 0; i < valx; i++) {
+		rc = slap_sasl_regexp_rewrite_config( &rw, "sasl-regexp", 0,
+				SaslRegexp[i].sr_match,
+				SaslRegexp[i].sr_replace,
+				AUTHID_CONTEXT);
+		assert( rc == 0 );
+	}
+
+	rc = slap_sasl_regexp_rewrite_config( &rw, "sasl-regexp", 0,
 			match, replace, AUTHID_CONTEXT );
 #else /* ! SLAP_AUTH_REWRITE */
 
@@ -1390,10 +1401,28 @@ int slap_sasl_regexp_config( const char *match, const char *replace )
 	rc = slap_sasl_rx_off( replace, reg->sr_offset );
 #endif /* ! SLAP_AUTH_REWRITE */
 	if ( rc == LDAP_SUCCESS ) {
+		for ( i = nSaslRegexp; i > valx; i-- ) {
+			SaslRegexp[i] = SaslRegexp[i - 1];
+		}
+
 		reg->sr_match = ch_strdup( match );
 		reg->sr_replace = ch_strdup( replace );
 
 		nSaslRegexp++;
+#ifdef SLAP_AUTH_REWRITE
+		for ( i = valx + 1; i < nSaslRegexp; i++ ) {
+			rc = slap_sasl_regexp_rewrite_config( &rw, "sasl-regexp", 0,
+					SaslRegexp[i].sr_match,
+					SaslRegexp[i].sr_replace,
+					AUTHID_CONTEXT);
+			assert( rc == 0);
+		}
+
+		slap_sasl_rewrite_destroy();
+		sasl_rwinfo = rw;
+	} else {
+		rewrite_info_delete( &rw );
+#endif
 	}
 
 	return rc;
