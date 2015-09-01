@@ -1330,6 +1330,33 @@ static int slap_sasl_rewrite_config_bv(
 	return rc;
 }
 
+static void
+slap_sasl_rewrite_bva_add(
+		BerVarray	*bva,
+		int		argc,
+		char		**argv
+)
+{
+	char		*line, *s;
+	struct berval	bv;
+
+	if ( argc > 1 ) {
+		/* quote all args but the first */
+		line = ldap_charray2str( argv, "\" \"" );
+		ber_str2bv( line, 0, 0, &bv );
+		s = ber_bvchr( &bv, '"' );
+		assert( s != NULL );
+
+		/* move the trailing quote of argv[0] to the end */
+		AC_MEMCPY( s, s + 1, bv.bv_len - ( s - bv.bv_val ) );
+		bv.bv_val[ bv.bv_len - 1 ] = '"';
+	} else {
+		ber_str2bv( argv[ 0 ], 0, 1, &bv );
+	}
+
+	ber_bvarray_add( bva, &bv );
+}
+
 int slap_sasl_rewrite_config(
 		const char	*fname,
 		int		lineno,
@@ -1343,23 +1370,7 @@ int slap_sasl_rewrite_config(
 
 	rc = slap_sasl_rewrite_config_argv( fname, lineno, argc, argv );
 	if ( rc == 0 ) {
-		if ( argc > 1 ) {
-			char	*s;
-
-			/* quote all args but the first */
-			line = ldap_charray2str( argv, "\" \"" );
-			ber_str2bv( line, 0, 0, &bv );
-			s = ber_bvchr( &bv, '"' );
-			assert( s != NULL );
-			/* move the trailing quote of argv[0] to the end */
-			AC_MEMCPY( s, s + 1, bv.bv_len - ( s - bv.bv_val ) );
-			bv.bv_val[ bv.bv_len - 1 ] = '"';
-
-		} else {
-			ber_str2bv( argv[ 0 ], 0, 1, &bv );
-		}
-
-		ber_bvarray_add( &authz_rewrites, &bv );
+		slap_sasl_rewrite_bva_add( &authz_rewrites, argc, argv );
 	}
 
 	return rc;
