@@ -81,9 +81,6 @@ static CfBackInfo cfBackInfo;
 static char	*passwd_salt;
 static FILE *logfile;
 static char	*logfileName;
-#ifdef SLAP_AUTH_REWRITE
-static BerVarray authz_rewrites;
-#endif
 static AccessControl *defacl_parsed = NULL;
 
 static struct berval cfdir;
@@ -1333,9 +1330,7 @@ config_generic(ConfigArgs *c) {
 #endif
 #ifdef SLAP_AUTH_REWRITE
 		case CFG_REWRITE:
-			if ( authz_rewrites ) {
-				rc = slap_bv_x_ordered_unparse( authz_rewrites, &c->rvalue_vals );
-			}
+			rc = slap_sasl_rewrite_unparse( &c->rvalue_vals );
 			break;
 #endif
 		default:
@@ -2347,36 +2342,13 @@ sortval_reject:
 
 #ifdef SLAP_AUTH_REWRITE
 		case CFG_REWRITE: {
-			struct berval bv;
-			char *line;
-			int rc = 0;
+			int rc;
 
 			if ( c->op == LDAP_MOD_ADD ) {
 				c->argv++;
 				c->argc--;
 			}
-			if(slap_sasl_rewrite_config(c->fname, c->lineno, c->argc, c->argv))
-				rc = 1;
-			if ( rc == 0 ) {
-
-				if ( c->argc > 1 ) {
-					char	*s;
-
-					/* quote all args but the first */
-					line = ldap_charray2str( c->argv, "\" \"" );
-					ber_str2bv( line, 0, 0, &bv );
-					s = ber_bvchr( &bv, '"' );
-					assert( s != NULL );
-					/* move the trailing quote of argv[0] to the end */
-					AC_MEMCPY( s, s + 1, bv.bv_len - ( s - bv.bv_val ) );
-					bv.bv_val[ bv.bv_len - 1 ] = '"';
-
-				} else {
-					ber_str2bv( c->argv[ 0 ], 0, 1, &bv );
-				}
-
-				ber_bvarray_add( &authz_rewrites, &bv );
-			}
+			rc = slap_sasl_rewrite_config(c->fname, c->lineno, c->argc, c->argv);
 			if ( c->op == LDAP_MOD_ADD ) {
 				c->argv--;
 				c->argc++;

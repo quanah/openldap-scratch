@@ -1721,6 +1721,7 @@ LDAP_SLAPD_F (int) slap_sasl_rewrite_config LDAP_P((
 	int lineno,
 	int argc, 
 	char **argv ));
+LDAP_SLAPD_F (int) slap_sasl_rewrite_unparse LDAP_P(( BerVarray *bva ));
 #endif /* SLAP_AUTH_REWRITE */
 LDAP_SLAPD_F (void) slap_sasl_regexp_destroy LDAP_P(( void ));
 LDAP_SLAPD_F (int) slap_sasl_regexp_delete LDAP_P(( int valx ));

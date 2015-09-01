@@ -80,6 +80,7 @@ static SaslRegexp_t *SaslRegexp = NULL;
 #include "rewrite.h"
 struct rewrite_info	*sasl_rwinfo = NULL;
 #define AUTHID_CONTEXT	"authid"
+static BerVarray	authz_rewrites = NULL;
 #endif /* SLAP_AUTH_REWRITE */
 
 /* What SASL proxy authorization policies are allowed? */
@@ -1287,7 +1288,8 @@ int slap_sasl_rewrite_config(
 )
 {
 	int	rc;
-	char	*savearg0;
+	char	*savearg0, *line;
+	struct berval bv;
 
 	/* init at first call */
 	if ( sasl_rwinfo == NULL ) {
@@ -1300,6 +1302,26 @@ int slap_sasl_rewrite_config(
 	rc = rewrite_parse( sasl_rwinfo, fname, lineno, argc, argv );
 	argv[0] = savearg0;
 
+	if ( rc == 0 ) {
+		if ( argc > 1 ) {
+			char	*s;
+
+			/* quote all args but the first */
+			line = ldap_charray2str( argv, "\" \"" );
+			ber_str2bv( line, 0, 0, &bv );
+			s = ber_bvchr( &bv, '"' );
+			assert( s != NULL );
+			/* move the trailing quote of argv[0] to the end */
+			AC_MEMCPY( s, s + 1, bv.bv_len - ( s - bv.bv_val ) );
+			bv.bv_val[ bv.bv_len - 1 ] = '"';
+
+		} else {
+			ber_str2bv( argv[ 0 ], 0, 1, &bv );
+		}
+
+		ber_bvarray_add( &authz_rewrites, &bv );
+	}
+
 	return rc;
 }
 
@@ -1311,6 +1333,13 @@ slap_sasl_rewrite_destroy( void )
 		sasl_rwinfo = NULL;
 	}
 
+	return 0;
+}
+
+int slap_sasl_rewrite_unparse( BerVarray *bva ) {
+	if ( authz_rewrites ) {
+		return slap_bv_x_ordered_unparse( authz_rewrites, bva );
+	}
 	return 0;
 }
 
