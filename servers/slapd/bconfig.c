@@ -330,7 +330,7 @@ static ConfigTable config_back_cf_table[] = {
 				NULL, NULL },
 	{ "authid-rewrite", "rewrite", 2, 0, STRLENOF( "authid-rewrite" ),
 #ifdef SLAP_AUTH_REWRITE
-		ARG_MAGIC|CFG_REWRITE|ARG_NO_INSERT, &config_generic,
+		ARG_MAGIC|CFG_REWRITE, &config_generic,
 #else
 		ARG_IGNORED, NULL,
 #endif
@@ -2353,7 +2353,7 @@ sortval_reject:
 				c->argv++;
 				c->argc--;
 			}
-			rc = slap_sasl_rewrite_config(c->fname, c->lineno, c->argc, c->argv);
+			rc = slap_sasl_rewrite_config(c->fname, c->lineno, c->argc, c->argv, c->valx);
 			if ( c->op == LDAP_MOD_ADD ) {
 				c->argv--;
 				c->argc++;
