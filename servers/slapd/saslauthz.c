@@ -1309,6 +1309,27 @@ static int slap_sasl_rewrite_config_argv(
 	return rc;
 }
 
+static int slap_sasl_rewrite_config_bv(
+		const char	*fname,
+		int		lineno,
+		struct berval	bv
+)
+{
+	int rc;
+	ConfigArgs ca = { 0 };
+
+	ca.line = bv.bv_val;
+	ca.argc = 0;
+	config_fp_parse_line( &ca );
+
+	rc = slap_sasl_rewrite_config_argv( fname, lineno, ca.argc, ca.argv );
+
+	ch_free( ca.tline );
+	ch_free( ca.argv );
+
+	return rc;
+}
+
 int slap_sasl_rewrite_config(
 		const char	*fname,
 		int		lineno,
@@ -1385,17 +1406,7 @@ int slap_sasl_rewrite_delete( int valx ) {
 
 	for ( i = 0; !BER_BVISNULL( &authz_rewrites[ i ] ); i++ )
 	{
-		ConfigArgs ca = { 0 };
-
-		ca.line = authz_rewrites[ i ].bv_val;
-		ca.argc = 0;
-		config_fp_parse_line( &ca );
-
-		rc = slap_sasl_rewrite_config_argv( "slapd", 0, ca.argc, ca.argv );
-
-		ch_free( ca.tline );
-		ch_free( ca.argv );
-
+		rc = slap_sasl_rewrite_config_bv( "slapd", 0, authz_rewrites[ i ] );
 		assert( rc == 0 );
 	}
 
