@@ -1291,6 +1291,10 @@ static int slap_sasl_rewrite_config_argv(
 	int	rc;
 	char	*savearg0;
 
+	if ( strncasecmp( argv[0], "authid-", STRLENOF( "authid-" ) ) != 0 ) {
+		return 1;
+	}
+
 	/* init at first call */
 	if ( sasl_rwinfo == NULL ) {
 		sasl_rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
