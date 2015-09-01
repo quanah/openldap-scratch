@@ -28,6 +28,7 @@
 #include "slap.h"
 
 #include "lutil.h"
+#include "config.h"
 
 #define SASLREGEX_REPLACE 10
 
@@ -1280,7 +1281,7 @@ static int slap_sasl_rx_off(char *rep, int *off)
 #endif /* ! SLAP_AUTH_REWRITE */
 
 #ifdef SLAP_AUTH_REWRITE
-int slap_sasl_rewrite_config( 
+static int slap_sasl_rewrite_config_argv(
 		const char	*fname,
 		int		lineno,
 		int		argc,
@@ -1288,8 +1289,7 @@ int slap_sasl_rewrite_config(
 )
 {
 	int	rc;
-	char	*savearg0, *line;
-	struct berval bv;
+	char	*savearg0;
 
 	/* init at first call */
 	if ( sasl_rwinfo == NULL ) {
@@ -1302,6 +1302,21 @@ int slap_sasl_rewrite_config(
 	rc = rewrite_parse( sasl_rwinfo, fname, lineno, argc, argv );
 	argv[0] = savearg0;
 
+	return rc;
+}
+
+int slap_sasl_rewrite_config(
+		const char	*fname,
+		int		lineno,
+		int		argc,
+		char		**argv
+)
+{
+	int	rc;
+	char	*line;
+	struct berval bv;
+
+	rc = slap_sasl_rewrite_config_argv( fname, lineno, argc, argv );
 	if ( rc == 0 ) {
 		if ( argc > 1 ) {
 			char	*s;
@@ -1334,6 +1349,53 @@ slap_sasl_rewrite_destroy( void )
 	}
 
 	return 0;
+}
+
+int slap_sasl_rewrite_delete( int valx ) {
+	int rc, i;
+
+	if ( valx == -1 ) {
+		slap_sasl_rewrite_destroy();
+		if ( authz_rewrites ) {
+			ber_bvarray_free( authz_rewrites );
+			authz_rewrites = NULL;
+		}
+		return 0;
+	}
+
+	for ( i = 0; !BER_BVISNULL( &authz_rewrites[ i ] ); i++ )
+		/* count'em */ ;
+
+	if ( valx >= i ) {
+		return 1;
+	}
+
+	ber_memfree( authz_rewrites[ i ].bv_val );
+	for ( i = valx; !BER_BVISNULL( &authz_rewrites[ i + 1 ] ); i++ )
+	{
+		authz_rewrites[ i ] = authz_rewrites[ i + 1 ];
+	}
+	BER_BVZERO( &authz_rewrites[ i ] );
+
+	slap_sasl_rewrite_destroy();
+
+	for ( i = 0; !BER_BVISNULL( &authz_rewrites[ i ] ); i++ )
+	{
+		ConfigArgs ca = { 0 };
+
+		ca.line = authz_rewrites[ i ].bv_val;
+		ca.argc = 0;
+		config_fp_parse_line( &ca );
+
+		rc = slap_sasl_rewrite_config_argv( "slapd", 0, ca.argc, ca.argv );
+
+		ch_free( ca.tline );
+		ch_free( ca.argv );
+
+		assert( rc == 0 );
+	}
+
+	return rc;
 }
 
 int slap_sasl_rewrite_unparse( BerVarray *bva ) {
