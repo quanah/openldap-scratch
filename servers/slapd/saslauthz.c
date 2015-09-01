@@ -1357,6 +1357,17 @@ slap_sasl_rewrite_bva_add(
 	ber_bvarray_add( bva, &bv );
 }
 
+static int
+slap_sasl_rewrite_destroy( void )
+{
+	if ( sasl_rwinfo ) {
+		rewrite_info_delete( &sasl_rwinfo );
+		sasl_rwinfo = NULL;
+	}
+
+	return 0;
+}
+
 int slap_sasl_rewrite_config(
 		const char	*fname,
 		int		lineno,
@@ -1374,17 +1385,6 @@ int slap_sasl_rewrite_config(
 	}
 
 	return rc;
-}
-
-static int
-slap_sasl_rewrite_destroy( void )
-{
-	if ( sasl_rwinfo ) {
-		rewrite_info_delete( &sasl_rwinfo );
-		sasl_rwinfo = NULL;
-	}
-
-	return 0;
 }
 
 int slap_sasl_rewrite_delete( int valx ) {
