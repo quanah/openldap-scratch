@@ -18,9 +18,9 @@ echo "running defines.sh"
 unset LDAPNOINIT
 
 mkdir -p $TESTDIR $DBDIR1
-cp -r $DATADIR/ssl $TESTDIR
+cp -r $DATADIR/tls $TESTDIR
 
-cd $TESTDIR/ssl && ./create-crt.sh -s
+cd $TESTDIR/tls && ./create-crt.sh -s
 cd $TESTWD
 
 
@@ -36,7 +36,7 @@ KILLPIDS="$PID"
 
 sleep 1
 
-echo "TLS_CACERT $TESTDIR/ssl/ca/certs/testsuiteCA.crt" > $TESTDIR/ldapconf
+echo "TLS_CACERT $TESTDIR/tls/ca/certs/testsuiteCA.crt" > $TESTDIR/ldapconf
 
 echo "Using ldapsearch with startTLS"
 for i in 0 1 2 3 4 5; do
