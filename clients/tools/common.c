@@ -92,6 +92,14 @@ char		*sasl_mech = NULL;
 char		*sasl_secprops = NULL;
 #endif
 
+/* TLS */
+#ifdef HAVE_TLS
+char		*tls_cacertfile = NULL;
+char		*tls_cacertdir = NULL;
+char		*tls_certfile = NULL;
+char		*tls_keyfile = NULL;
+int		*tls_require_cert = NULL;
+#endif
 /* controls */
 int		assertctl;
 char		*assertion = NULL;
@@ -375,8 +383,15 @@ N_("  -n         show what would be done but don't actually do it\n"),
 N_("  -N         do not use reverse DNS to canonicalize SASL host name\n"),
 N_("  -O props   SASL security properties\n"),
 N_("  -o <opt>[=<optparam>] general options\n"),
-N_("             nettimeout=<timeout> (in seconds, or \"none\" or \"max\")\n"),
 N_("             ldif-wrap=<width> (in columns, or \"no\" for no wrapping)\n"),
+N_("             nettimeout=<timeout> (in seconds, or \"none\" or \"max\")\n"),
+#ifdef HAVE_TLS
+N_("             tls-cacertfile=<path> (path to CA file for TLS operations)\n"),
+N_("             tls-cacertdir=<path> (path to CA directory for TLS operations)\n"),
+N_("             tls-certfile=<path> (path to public cert file for TLS certificate authentication)\n"),
+N_("             tls-keyfile=<path> (path to private key file for TLS certificate authentication)\n"),
+N_("             tls-reqcert=<level> (check to perform within a TLS session (never, allow, try, demand|hard))\n"),
+#endif
 N_("  -p port    port on LDAP server\n"),
 N_("  -Q         use SASL Quiet mode\n"),
 N_("  -R realm   SASL realm\n"),
@@ -884,6 +899,71 @@ tool_args( int argc, char **argv )
 					ldif_wrap = (ber_len_t)u;
 				}
 
+#ifdef HAVE_TLS
+			} else if ( strcasecmp( control, "tls-cacertfile" ) == 0 ) {
+				if( tls_cacertfile != NULL ) {
+					fprintf( stderr, "tls-cacertfile option previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if (tls_cacertdir != NULL) {
+					fprintf( stderr, "Incompatible option tls-cacertdir previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if( cvalue == NULL || cvalue[0] == '\0' ) {
+					fprintf( stderr, "tls-cacertfile: option value expected\n" );
+					usage();
+				}
+				tls_cacertfile = ber_strdup( cvalue );
+
+			} else if ( strcasecmp( control, "tls-cacertdir" ) == 0 ) {
+				if( tls_cacertdir != NULL ) {
+					fprintf( stderr, "tls-cacertdir option previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if (tls_cacertfile != NULL) {
+					fprintf( stderr, "Incompatible option tls-cacertfile previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if( cvalue == NULL || cvalue[0] == '\0' ) {
+					fprintf( stderr, "tls-cacertdir: option value expected\n" );
+					usage();
+				}
+				tls_cacertdir = ber_strdup( cvalue );
+
+			} else if ( strcasecmp( control, "tls-certfile" ) == 0 ) {
+				if( tls_certfile != NULL ) {
+					fprintf( stderr, "tls-certfile option previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if( cvalue == NULL || cvalue[0] == '\0' ) {
+					fprintf( stderr, "tls-certfile: option value expected\n" );
+					usage();
+				}
+				tls_certfile = ber_strdup( cvalue );
+
+			} else if ( strcasecmp( control, "tls-keyfile" ) == 0 ) {
+				if( tls_keyfile != NULL ) {
+					fprintf( stderr, "tls-keyfile option previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if( cvalue == NULL || cvalue[0] == '\0' ) {
+					fprintf( stderr, "tls-keyfile: option value expected\n" );
+					usage();
+				}
+				tls_keyfile = ber_strdup( cvalue );
+
+			} else if ( strcasecmp( control, "tls-reqcert" ) == 0 ) {
+				if( tls_require_cert != NULL ) {
+					fprintf( stderr, "tls-reqcert option previously specified\n");
+					exit( EXIT_FAILURE );
+				}
+				if( cvalue == NULL || cvalue[0] == '\0' ) {
+					fprintf( stderr, "tls-reqcert: option value expected\n" );
+					usage();
+				}
+				tls_require_cert = ber_strdup( cvalue );
+#endif
+
 			} else {
 				fprintf( stderr, "Invalid general option name: %s\n",
 					control );
@@ -1215,6 +1295,10 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 {
 	LDAP *ld = NULL;
 
+#ifdef HAVE_TLS
+	int need_tls_ctx = 0;
+#endif
+
 	if ( debug ) {
 		if( ber_set_option( NULL, LBER_OPT_DEBUG_LEVEL, &debug )
 			!= LBER_OPT_SUCCESS )
@@ -1230,6 +1314,74 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 		}
 	}
 
+#ifdef HAVE_TLS
+		if( tls_cacertfile ) {
+			if ( ldap_set_option( NULL, LDAP_OPT_X_TLS_CACERTFILE, tls_cacertfile )
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CACERTFILE %s\n",
+					tls_cacertfile );
+				tool_exit( ld, EXIT_FAILURE );
+			}
+			need_tls_ctx = 1;
+		}
+
+
+		if( tls_cacertdir ) {
+			if ( ldap_set_option( NULL, LDAP_OPT_X_TLS_CACERTDIR, tls_cacertdir )
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CACERTDIR %s\n",
+					tls_cacertdir );
+				tool_exit( ld, EXIT_FAILURE );
+			}
+			need_tls_ctx = 1;
+		}
+
+		if( tls_certfile ) {
+			if ( ldap_set_option( NULL, LDAP_OPT_X_TLS_CERTFILE, tls_certfile )
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CERTFILE %s\n",
+					tls_certfile );
+				tool_exit( ld, EXIT_FAILURE );
+			}
+			need_tls_ctx = 1;
+		}
+
+		if( tls_keyfile ) {
+			if ( ldap_set_option( NULL, LDAP_OPT_X_TLS_KEYFILE, tls_keyfile )
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_KEYFILE %s\n",
+					tls_keyfile );
+				tool_exit( ld, EXIT_FAILURE );
+			}
+			need_tls_ctx = 1;
+		}
+
+		if( tls_require_cert ) {
+			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, tls_require_cert )
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_REQUIRE_CERT %s\n",
+					tls_require_cert );
+				tool_exit( ld, EXIT_FAILURE );
+			}
+			need_tls_ctx = 1;
+		}
+
+		if ( need_tls_ctx ) {
+			int new_ctx = 0;
+			if ( ldap_set_option(ld, LDAP_OPT_X_TLS_NEWCTX, &new_ctx)
+				!= LDAP_OPT_SUCCESS )
+			{
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_NEWCTX\n");
+				tool_exit( ld, EXIT_FAILURE );
+			}
+		}
+
+#endif
 #ifdef SIGPIPE
 	(void) SIGNAL( SIGPIPE, SIG_IGN );
 #endif
