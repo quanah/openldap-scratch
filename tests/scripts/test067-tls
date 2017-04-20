@@ -15,7 +15,6 @@
 
 echo "running defines.sh"
 . $SRCDIR/scripts/defines.sh
-unset LDAPNOINIT
 
 mkdir -p $TESTDIR $DBDIR1
 cp -r $DATADIR/tls $TESTDIR
@@ -24,9 +23,9 @@ cd $TESTDIR/tls && ./create-crt.sh -s
 cd $TESTWD
 
 
-echo "Starting slapd on TCP/IP port $PORT1..."
+echo "Starting ldap:/// slapd on TCP/IP port $PORT1 and ldaps:/// slapd on $PORT2..."
 . $CONFFILTER $BACKEND $MONITORDB < $TLSCONF > $CONF1
-$SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING > $LOG1 2>&1 &
+$SLAPD -f $CONF1 -h "$URI1 $SURI2" -d $LVL $TIMING > $LOG1 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
     echo PID $PID
@@ -36,31 +35,59 @@ KILLPIDS="$PID"
 
 sleep 1
 
-echo "TLS_CACERT $TESTDIR/tls/ca/certs/testsuiteCA.crt" > $TESTDIR/ldapconf
-
-echo "Using ldapsearch with startTLS"
 for i in 0 1 2 3 4 5; do
-	LDAPCONF=$TESTDIR/ldapconf $LDAPSEARCH -ZZ -b "" -s base -h $LOCALHOST -p $PORT1 \
-		'@extensibleObject' > $SEARCHOUT 2>&1
-	RC=$?
-	if test $RC = 0 ; then
-		break
-	fi
-	echo "Waiting 5 seconds for slapd to start..."
-	sleep 5
+	$LDAPSEARCH -s base -b "" -H $URI1 \
+		'objectclass=*' > /dev/null 2>&1
+        RC=$?
+        if test $RC = 0 ; then
+                break
+        fi
+        echo "Waiting 5 seconds for slapd to start..."
+        sleep 5
 done
 
+if test $RC != 0 ; then
+	echo "ldapsearch failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+fi
+
+echo -n "Using ldapsearch with startTLS...."
+$LDAPSEARCH -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard -ZZ -b "" -s base -H $URI1 \
+	'@extensibleObject' > $SEARCHOUT 2>&1
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapsearch (startTLS) failed ($RC)!"
+	exit $RC
+else
+	echo "success"
+fi
+
+echo -n "Using ldapsearch on $SURI2 with reqcert HARD and no CA cert.  Should fail..."
+$LDAPSEARCH -o tls-reqcert=hard -b "cn=Subschema" -s base -H $SURI2 \
+	'(&(objectClasses=top)(objectClasses=2.5.6.0))' cn objectClass \
+	>> $SEARCHOUT  2>&1
+RC=$?
 if test $RC = 0 ; then
-	echo "Using ldapsearch with ldaps"
-#	LDAPCONF=$TESTDIR/ldapconf $LDAPSEARCH -b "cn=Subschema" -s base -h $LOCALHOST -p $PORT1 \
-#		'(&(objectClasses=top)(objectClasses=2.5.6.0))' cn objectClass \
-#		>> $SEARCHOUT  2>&1
-#	RC=$?
+	echo "ldapsearch (ldaps) succeeded when it should have failed($RC)!"
+	exit 1
+else
+	echo "failed correctly with error code ($RC)"
+fi
+
+echo -n "Using ldapsearch on $SURI2 with CA cert and reqcert HARD..."
+$LDAPSEARCH -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard -b "cn=Subschema" -s base -H $SURI2 \
+	'(&(objectClasses=top)(objectClasses=2.5.6.0))' cn objectClass \
+	>> $SEARCHOUT  2>&1
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapsearch (ldaps) failed ($RC)!"
+	exit $RC
+else
+	echo "success"
 fi
 
 test $KILLSERVERS != no && kill -HUP $KILLPIDS
-
-cat $SEARCHOUT
 
 if test $RC != 0 ; then
 	echo ">>>>> Test failed"
