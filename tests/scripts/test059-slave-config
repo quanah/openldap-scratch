@@ -120,7 +120,7 @@ fi
 # Instead, they will use an alternate DB so that they may be
 # configured differently from the master. This alternate DB
 # will also be a consumer for the real cn=schema,cn=config tree.
-# It has MirrorMode enabled so that it can be written directly
+# It has multimaster enabled so that it can be written directly
 # while being a slave of the main schema.
 echo "Configuring slave config DB on provider..."
 $LDAPMODIFY -D cn=config -H $URI1 -y $CONFIGPWF <<EOF >> $TESTOUT 2>&1
@@ -174,8 +174,8 @@ olcSyncrepl: {0}rid=001 provider=$URI1 binddn="cn=config"
   $SYNCTYPE retry="3 5 300 5" timeout=3
   suffixmassage="cn=schema,cn=config,cn=slave"
 -
-add: olcMirrorMode
-olcMirrorMode: TRUE
+add: olcMultiMaster
+olcMultiMaster: TRUE
 
 EOF
 RC=$?

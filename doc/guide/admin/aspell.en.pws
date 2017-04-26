@@ -644,8 +644,7 @@ ldapexop
 objectIdentifier
 objectidentifier
 deallocators
-mirrormode
-MirrorMode
+multimaster
 loopDetect
 SIGHUP
 authMethodNotSupported
@@ -1559,7 +1558,7 @@ builtin
 matcheduid
 Locator
 ldapmaster
-olcMirrorMode
+olcMultiMaster
 libldap
 refreshDeletes
 aliasProblem

@@ -186,7 +186,7 @@ enum {
 	CFG_SSTR_IF_MAX,
 	CFG_SSTR_IF_MIN,
 	CFG_TTHREADS,
-	CFG_MIRRORMODE,
+	CFG_MULTIMASTER,
 	CFG_HIDDEN,
 	CFG_MONITORING,
 	CFG_SERVERID,
@@ -459,8 +459,8 @@ static ConfigTable config_back_cf_table[] = {
 	{ "maxDerefDepth", "depth", 2, 2, 0, ARG_DB|ARG_INT|ARG_MAGIC|CFG_DEPTH,
 		&config_generic, "( OLcfgDbAt:0.6 NAME 'olcMaxDerefDepth' "
 			"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
-	{ "mirrormode", "on|off", 2, 2, 0, ARG_DB|ARG_ON_OFF|ARG_MAGIC|CFG_MIRRORMODE,
-		&config_generic, "( OLcfgDbAt:0.16 NAME 'olcMirrorMode' "
+	{ "multimaster", "on|off", 2, 2, 0, ARG_DB|ARG_ON_OFF|ARG_MAGIC|CFG_MULTIMASTER,
+		&config_generic, "( OLcfgDbAt:0.16 NAME ( 'olcMultiMaster' 'olcMirrorMode' ) "
 			"SYNTAX OMsBoolean SINGLE-VALUE )", NULL, NULL },
 	{ "moduleload",	"file", 2, 0, 0,
 #ifdef SLAPD_MODULES
@@ -837,6 +837,10 @@ static ConfigTable config_back_cf_table[] = {
 	{ "writetimeout", "timeout", 2, 2, 0, ARG_INT,
 		&global_writetimeout, "( OLcfgGlAt:88 NAME 'olcWriteTimeout' "
 			"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
+	/* Legacy keywords */
+	{ "mirrormode", "on|off", 2, 2, 0, ARG_DB|ARG_ON_OFF|ARG_MAGIC|CFG_MULTIMASTER,
+		&config_generic, NULL, NULL, NULL },
+
 	{ NULL,	NULL, 0, 0, 0, ARG_IGNORED,
 		NULL, NULL, NULL, NULL }
 };
@@ -926,7 +930,7 @@ static ConfigOCs cf_ocs[] = {
 		 "olcReplicaArgsFile $ olcReplicaPidFile $ olcReplicationInterval $ "
 		 "olcReplogFile $ olcRequires $ olcRestrict $ olcRootDN $ olcRootPW $ "
 		 "olcSchemaDN $ olcSecurity $ olcSizeLimit $ olcSyncUseSubentry $ olcSyncrepl $ "
-		 "olcTimeLimit $ olcUpdateDN $ olcUpdateRef $ olcMirrorMode $ "
+		 "olcTimeLimit $ olcUpdateDN $ olcUpdateRef $ olcMultiMaster $ "
 		 "olcMonitoring $ olcExtraAttrs ) )",
 		 	Cft_Database, NULL, cfAddDatabase },
 	{ "( OLcfgGlOc:5 "
@@ -1264,7 +1268,7 @@ config_generic(ConfigArgs *c) {
 		case CFG_SYNC_SUBENTRY:
 			c->value_int = (SLAP_SYNC_SUBENTRY(c->be) != 0);
 			break;
-		case CFG_MIRRORMODE:
+		case CFG_MULTIMASTER:
 			if ( SLAP_SHADOW(c->be))
 				c->value_int = (SLAP_MULTIMASTER(c->be) != 0);
 			else
@@ -1391,7 +1395,7 @@ config_generic(ConfigArgs *c) {
 			snprintf(c->log, sizeof( c->log ), "change requires slapd restart");
 			break;
 
-		case CFG_MIRRORMODE:
+		case CFG_MULTIMASTER:
 			SLAP_DBFLAGS(c->be) &= ~SLAP_DBFLAG_MULTI_SHADOW;
 			if(SLAP_SHADOW(c->be))
 				SLAP_DBFLAGS(c->be) |= SLAP_DBFLAG_SINGLE_SHADOW;
@@ -2211,7 +2215,7 @@ sortval_reject:
 				SLAP_DBFLAGS(c->be) |= SLAP_DBFLAG_NOLASTMOD;
 			break;
 
-		case CFG_MIRRORMODE:
+		case CFG_MULTIMASTER:
 			if(c->value_int && !SLAP_SHADOW(c->be)) {
 				snprintf( c->cr_msg, sizeof( c->cr_msg ), "<%s> database is not a shadow",
 					c->argv[0] );

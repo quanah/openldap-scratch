@@ -169,8 +169,8 @@ echo "  retry=\"3 10 300 5\" timeout=3" >> $TMP
 n=`expr $n + 1`
 done
 echo "-" >> $TMP
-echo "add: olcMirrorMode" >> $TMP
-echo "olcMirrorMode: TRUE" >> $TMP
+echo "add: olcMultiMaster" >> $TMP
+echo "olcMultiMaster: TRUE" >> $TMP
 $LDAPMODIFY -D cn=config -H $URI1 -y $CONFIGPWF < $TMP >> $TESTOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -232,8 +232,8 @@ j=`expr $j + 1`
 done
 cat <<EOF >> $TMP
 -
-add: olcMirrorMode
-olcMirrorMode: TRUE
+add: olcMultiMaster
+olcMultiMaster: TRUE
 EOF
 $LDAPMODIFY -D cn=config -H $URI -y $CONFIGPWF < $TMP >>$TESTOUT 2>&1
 n=`expr $n + 1`
@@ -296,7 +296,7 @@ n=`expr $n + 1`
 done
 
 cat <<EOF >> $TMP
-olcMirrorMode: TRUE
+olcMultiMaster: TRUE
 
 dn: olcOverlay=syncprov,olcDatabase={1}${BACKEND},cn=config
 objectClass: olcOverlayConfig
