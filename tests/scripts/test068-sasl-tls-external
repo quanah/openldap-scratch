@@ -68,9 +68,9 @@ if test $RC != 0 ; then
 fi
 
 echo -n "Using ldapwhoami with SASL/EXTERNAL...."
-$LDAPWHOAMI -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard \
-	-o tls-certfile=$TESTDIR/tls/certs/bjensen@mailgw.example.com.crt -o tls-keyfile=$TESTDIR/tls/private/bjensen@mailgw.example.com.key -ZZ -Y EXTERNAL -b "" -s base -H $URI1 \
-	'@extensibleObject' > $SEARCHOUT 2>&1
+$LDAPSASLWHOAMI -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard \
+	-o tls-certfile=$TESTDIR/tls/certs/bjensen@mailgw.example.com.crt -o tls-keyfile=$TESTDIR/tls/private/bjensen@mailgw.example.com.key -ZZ -Y EXTERNAL -H $URI1 \
+	> $SEARCHOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "ldapwhoami (startTLS) failed ($RC)!"
