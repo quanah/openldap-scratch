@@ -16,6 +16,11 @@
 echo "running defines.sh"
 . $SRCDIR/scripts/defines.sh
 
+if test $WITH_TLS = no ; then
+        echo "TLS support not available, test skipped"
+        exit 0
+fi
+
 mkdir -p $TESTDIR $DBDIR1
 cp -r $DATADIR/tls $TESTDIR
 
@@ -61,6 +66,20 @@ if test $RC != 0 ; then
 	exit $RC
 else
 	echo "success"
+fi
+
+
+if test $WITH_TLS_TYPE = openssl ; then
+	echo -n "Using ldapsearch with startTLS and specific protocol version...."
+	$LDAPSEARCH -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard -o tls-protocol-min=3.3 -ZZ -b "" -s base -H $URI1 \
+		'@extensibleObject' > $SEARCHOUT 2>&1
+	RC=$?
+	if test $RC != 0 ; then
+		echo "ldapsearch (protocol-min) failed ($RC)!"
+		exit $RC
+	else
+		echo "success"
+	fi
 fi
 
 echo -n "Using ldapsearch on $SURI2 with reqcert HARD and no CA cert.  Should fail..."
