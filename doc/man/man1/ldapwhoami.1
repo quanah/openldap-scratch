@@ -149,6 +149,16 @@ General options:
 .nf
   nettimeout=<timeout>  (in seconds, or "none" or "max")
   ldif-wrap=<width>     (in columns, or "no" for no wrapping)
+  tls-cacertfile=<path> (path to CA file for TLS operations)
+  tls-cacertdir=<path>  (path to CA directory for TLS operations)
+  tls-certfile=<path>   (path to public cert file for TLS certificate authentication)
+  tls-keyfile=<path>    (path to private key file for TLS certificate authentication)
+  tls-reqcert=<level>   (never, allow, try, demand|hard)
+  tls-cipher-suite=<cipher-suite-spec>  (acceptable cipher suite(s) and preference order)
+  tls-protocol-min=<major.[.minor]>  (minimum TLS protocol version to negotiate. OpenSSL only)
+  tls-randfile=<path>   (file to obtain random bits from when /dev/[u]random is not available. OpenSSL only)
+  tls-crl-check=<level> (none, peer, all. OpenSSL only)
+  tls-crl-file=<path>   (file containing a CRL to be used for verification of server certs. GnuTLS only)
 .fi
 .TP
 .BI \-O \ security-properties
