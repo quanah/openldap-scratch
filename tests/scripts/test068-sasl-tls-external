@@ -24,7 +24,8 @@ fi
 mkdir -p $TESTDIR $DBDIR1
 cp -r $DATADIR/tls $TESTDIR
 
-cd $TESTDIR/tls && ./create-crt.sh -u bjensen@mailgw.example.com
+cd $TESTDIR/tls && ./create-crt.sh -s
+./create-crt.sh -u bjensen@mailgw.example.com
 ./create-crt.sh -u bjorn@mailgw.example.com
 ./create-crt.sh -u jjones@mailgw.example.com
 cd $TESTWD
