@@ -44,13 +44,11 @@ mkdir -p private certs cruft/private cruft/certs
 echo "00" > cruft/serial
 touch cruft/index.txt
 touch cruft/index.txt.attr
+hn=$(hostname)
+sed -e "s;@HOSTNAME@;$hn;" conf/openssl.cnf >  ./openssl.cnf
 
 if [ $SERVER = 1 ]; then
 	rm -rf private/localhost.key certs/localhost.crt
-
-	hn=$(hostname)
-
-	sed -e "s;@HOSTNAME@;$hn;" conf/openssl.cnf >  ./openssl.cnf
 
 	$openssl req -new -nodes -out localhost.csr -keyout private/localhost.key \
 		-newkey rsa:1024 -config ./openssl.cnf \
