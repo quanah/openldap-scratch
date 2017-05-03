@@ -46,7 +46,7 @@ VALSORT=${AC_valsort-valsortno}
 # misc
 WITH_SASL=${AC_WITH_SASL-no}
 USE_SASL=${SLAPD_USE_SASL-no}
-WITH_TLS={$AC_WITH_TLS-no}
+WITH_TLS=${AC_WITH_TLS-no}
 WITH_TLS_TYPE=${AC_TLS_TYPE-no}
 
 ACI=${AC_ACI_ENABLED-acino}
