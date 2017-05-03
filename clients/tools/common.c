@@ -1454,7 +1454,7 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_CIPHER_SUITE, tls_cipher_suite)
 				!= LDAP_OPT_SUCCESS )
 			{
-				fprintf( stderr, "Could not set %s\n",
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CIPHER_SUITE %s\n",
 					tls_cipher_suite);
 				tool_exit( ld, EXIT_FAILURE );
 			}
@@ -1466,7 +1466,7 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_PROTOCOL_MIN, tls_protocol_min)
 				!= LDAP_OPT_SUCCESS )
 			{
-				fprintf( stderr, "Could not set %s\n",
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_PROTOCOL_MIN %s\n",
 					tls_protocol_min);
 				tool_exit( ld, EXIT_FAILURE );
 			}
@@ -1477,7 +1477,7 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_RANDOM_FILE, tls_randfile)
 				!= LDAP_OPT_SUCCESS )
 			{
-				fprintf( stderr, "Could not set %s\n",
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_RANDOM_FILE %s\n",
 					tls_randfile);
 				tool_exit( ld, EXIT_FAILURE );
 			}
@@ -1490,7 +1490,7 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_CRLCHECK, tls_crl_check)
 				!= LDAP_OPT_SUCCESS )
 			{
-				fprintf( stderr, "Could not set %s\n",
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CRLCHECK %s\n",
 					tls_crl_check);
 				tool_exit( ld, EXIT_FAILURE );
 			}
@@ -1503,7 +1503,7 @@ tool_conn_setup( int dont, void (*private_setup)( LDAP * ) )
 			if ( ldap_pvt_tls_config( NULL, LDAP_OPT_X_TLS_CRLFILE, tls_crl_file)
 				!= LDAP_OPT_SUCCESS )
 			{
-				fprintf( stderr, "Could not set %s\n",
+				fprintf( stderr, "Could not set LDAP_OPT_X_TLS_CRLFILE %s\n",
 					tls_crl_file);
 				tool_exit( ld, EXIT_FAILURE );
 			}
