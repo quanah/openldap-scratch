@@ -215,6 +215,12 @@ URI3="ldap://${LOCALHOST}:$PORT3/"
 URI4="ldap://${LOCALHOST}:$PORT4/"
 URI5="ldap://${LOCALHOST}:$PORT5/"
 URI6="ldap://${LOCALHOST}:$PORT6/"
+SURI1="ldaps://${LOCALHOST}:$PORT1/"
+SURI2="ldaps://${LOCALHOST}:$PORT2/"
+SURI3="ldaps://${LOCALHOST}:$PORT3/"
+SURI4="ldaps://${LOCALHOST}:$PORT4/"
+SURI5="ldaps://${LOCALHOST}:$PORT5/"
+SURI6="ldaps://${LOCALHOST}:$PORT6/"
 
 # LDIF
 LDIF=$DATADIR/test.ldif
