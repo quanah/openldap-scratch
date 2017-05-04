@@ -31,7 +31,7 @@ cd $TESTDIR/tls && ./create-crt.sh -s
 cd $TESTWD
 
 echo "Running slapadd to build slapd database..."
-. $CONFFILTER $BACKEND $MONITORDB < $TLSCONF > $CONF1
+. $CONFFILTER $BACKEND $MONITORDB < $TLSSASLCONF > $CONF1
 $SLAPADD -f $CONF1 -l $LDIFORDERED
 RC=$?
 if test $RC != 0 ; then

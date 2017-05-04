@@ -108,6 +108,7 @@ P3SRSLAVECONF=$DATADIR/slapd-syncrepl-slave-persist3.conf
 REFSLAVECONF=$DATADIR/slapd-ref-slave.conf
 SCHEMACONF=$DATADIR/slapd-schema.conf
 TLSCONF=$DATADIR/slapd-tls.conf
+TLSSASLCONF=$DATADIR/slapd-tls-sasl.conf
 GLUECONF=$DATADIR/slapd-glue.conf
 REFINTCONF=$DATADIR/slapd-refint.conf
 RETCODECONF=$DATADIR/slapd-retcode.conf
