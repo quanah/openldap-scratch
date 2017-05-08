@@ -70,7 +70,7 @@ fi
 echo -n "Using ldapwhoami with SASL/EXTERNAL...."
 $LDAPSASLWHOAMI -o tls-cacertfile=$TESTDIR/tls/ca/certs/testsuiteCA.crt -o tls-reqcert=hard \
 	-o tls-certfile=$TESTDIR/tls/certs/bjensen@mailgw.example.com.crt -o tls-keyfile=$TESTDIR/tls/private/bjensen@mailgw.example.com.key -ZZ -Y EXTERNAL -H $URI1 \
-	> $SEARCHOUT 2>&1
+	> $TESTOUT 2>&1
 RC=$?
 if test $RC != 0 ; then
 	echo "ldapwhoami (startTLS) failed ($RC)!"
@@ -79,6 +79,18 @@ else
 	echo "success"
 fi
 
+echo -n "Validating mapped SASL ID..."
+echo 'dn:cn=barbara jensen,ou=information technology division,ou=people,dc=example,dc=com' > $TESTDIR/dn.out
+$CMP $TESTDIR/dn.out $TESTOUT > $CMPOUT
+
+RC=$?
+if test $RC != 0 ; then
+	echo "Comparison failed"
+	test $KILLSERVERS != no && kill -HUP $PID
+	exit $RC
+else
+	echo "success"
+fi
 
 test $KILLSERVERS != no && kill -HUP $KILLPIDS
 
