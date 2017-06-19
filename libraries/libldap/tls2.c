@@ -601,6 +601,9 @@ ldap_pvt_tls_config( LDAP *ld, int option, const char *arg )
 }
 
 int
+ldap_pvt_tls_get_peercert( void *s, struct berval *der );
+
+int
 ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 {
 	struct ldapoptions *lo;
