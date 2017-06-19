@@ -46,6 +46,7 @@
 #ifdef LDAP_SLAPI
 #include "slapi/slapi.h"
 #endif
+#include "ldif.h"
 #include "lutil.h"
 #include "lutil_ldap.h"
 #include "config.h"
