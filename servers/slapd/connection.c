@@ -1356,6 +1356,9 @@ int connection_read_activate( ber_socket_t s )
 	return rc;
 }
 
+
+int slap_sasl_cbinding( Connection *conn, struct berval *cbv );
+
 static int
 connection_read( ber_socket_t s, conn_readinfo *cri )
 {
