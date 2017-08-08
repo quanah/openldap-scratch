@@ -245,6 +245,11 @@ ldap_get_option(
 		rc = LDAP_OPT_SUCCESS;
 		break;
 
+	case LDAP_OPT_SOCKET_BIND_ADDRESSES:
+		* (char **) outvalue = ldap_list_bind_addr(lo->ldo_bind_addr);
+		rc = LDAP_OPT_SUCCESS;
+		break;
+
 	case LDAP_OPT_HOST_NAME:
 		* (char **) outvalue = ldap_url_list2hosts(lo->ldo_defludp);
 		rc = LDAP_OPT_SUCCESS;
@@ -541,6 +546,23 @@ ldap_set_option(
 		rc = LDAP_OPT_SUCCESS;
 		break;
 
+       case LDAP_OPT_BIND_ADDRESSES: {
+                       const char *addr = (const char *) invalue;
+                       LDAPBindAddr *lba_list = NULL;
+                       rc = LDAP_OPT_SUCCESS;
+
+                       if(addr != NULL) {
+                               rc = ldap_parse_bind_addr(&lba_list, addr);
+                       }
+
+                       if (rc == LDAP_OPT_SUCCESS) {
+                               if (lo->ldo_bind_addr != NULL) {
+                                       ldap_free_bind_addr(lo->ldo_bind_addr);
+                               }
+                               lo->ldo_bind_addr = lba_list;
+                       }
+                       break;
+               }
 
 	case LDAP_OPT_HOST_NAME: {
 			const char *host = (const char *) invalue;

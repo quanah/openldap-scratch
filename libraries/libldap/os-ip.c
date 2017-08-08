@@ -209,6 +209,50 @@ ldap_int_prepare_socket(LDAP *ld, int s, int proto )
 	return 0;
 }
 
+static int
+ldap_socket_bind_addr(LDAP *ld, int s, int sf, int st)
+{
+       LDAPBindAddr **ba;
+       LDAPBindAddr *bap;
+       struct addrinfo hints, *bai;
+       int err;
+       int matched = 0;
+
+       for ( ba = &ld->ld_options.ldo_bind_addr; *ba != NULL; ba = &(*ba)->lba_next ) {
+               bap = *ba;
+               if ( bap->lba_family == sf ) {
+                       matched = 1;
+                       break;
+               }
+       }
+
+       if ( !matched ) {
+               osip_debug(ld, "ldap_socket_bind_addr: no match\n", 0, 0, 0);
+               return -1;
+       }
+
+       memset( &hints, 0, sizeof(hints) );
+       hints.ai_flags = AI_ADDRCONFIG;
+       hints.ai_family = sf;
+       hints.ai_socktype = st;
+
+       err = getaddrinfo( bap->lba_address, NULL, &hints, &bai );
+       if ( err != 0 ) {
+               osip_debug( ld, "ldap_socket_bind_addr: %s getaddrinfo error %s\n",
+                           bap->lba_address, AC_GAI_STRERROR(err), 0 );
+               return -1;
+       }
+
+       if ( bind( s, bai->ai_addr, bai->ai_addrlen )) {
+               osip_debug( ld, "ldap_socket_bind_addr: %s bind error %s\n",
+                           bap->lba_address, strerror(errno), 0 );
+               return -1;
+       }
+
+       osip_debug( ld, "ldap_socket_bind_addr: %s bind success\n", bap->lba_address, 0, 0 );
+       return 0;
+}
+
 #ifndef HAVE_WINSOCK
 
 #undef TRACE
@@ -654,6 +698,8 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 					addr, serv, 0);
 			} break;
 		}
+
+		ldap_socket_bind_addr( ld, s, sai->ai_family, socktype);
 
 		rc = ldap_pvt_connect( ld, s,
 			sai->ai_addr, sai->ai_addrlen, async );

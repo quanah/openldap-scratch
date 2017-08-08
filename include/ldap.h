@@ -110,6 +110,8 @@ LDAP_BEGIN_DECL
 #define LDAP_OPT_ERROR_STRING			LDAP_OPT_DIAGNOSTIC_MESSAGE
 #define LDAP_OPT_MATCHED_DN			0x0033
 /* 0x0034 - 0x3fff not defined */
+/* same option code as Microsoft LDAP_OPT_SOCKET_BIND_ADDRESSES */
+#define LDAP_OPT_SOCKET_BIND_ADDRESSES		0x0044
 /* 0x0091 used by Microsoft for LDAP_OPT_AUTO_RECONNECT */
 #define LDAP_OPT_SSPI_FLAGS			0x0092
 /* 0x0093 used by Microsoft for LDAP_OPT_SSL_INFO */
@@ -813,6 +815,15 @@ typedef struct ldap_url_desc {
 #define LDAP_URL_ERR_BADSCOPE	0x08	/* scope string is invalid (or missing) */
 #define LDAP_URL_ERR_BADFILTER	0x09	/* bad or missing filter */
 #define LDAP_URL_ERR_BADEXTS	0x0a	/* bad or missing extensions */
+
+/*
+ *  data type for ldap socket bind addresses
+ */
+typedef struct ldap_bind_addr {
+        struct ldap_bind_addr *lba_next;
+        char   *lba_address;
+        int    lba_family;
+} LDAPBindAddr;
 
 /*
  * LDAP sync (RFC4533) API

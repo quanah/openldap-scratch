@@ -206,6 +206,9 @@ struct ldapoptions {
 	char*	ldo_defbase;
 	char*	ldo_defbinddn;	/* bind dn */
 
+	/* socket bind addresses */
+	LDAPBindAddr *ldo_bind_addr;
+
 	/*
 	 * Per connection tcp-keepalive settings (Linux only,
 	 * ignored where unsupported)
@@ -802,6 +805,19 @@ LDAP_F (int) ldap_url_parsehosts LDAP_P((
 
 LDAP_F (char *) ldap_url_list2hosts LDAP_P((
 	LDAPURLDesc *ludlist ));
+
+/*
+ * in addr.c
+ */
+LDAP_F (void) ldap_free_bind_addr LDAP_P((
+        LDAPBindAddr *lba_ptr ));
+
+LDAP_F (int) ldap_parse_bind_addr LDAP_P((
+        LDAPBindAddr **lba_list,
+        const char *addresses ));
+
+LDAP_F (char *) ldap_list_bind_addr LDAP_P((
+        LDAPBindAddr *lba_list ));
 
 /*
  * in cyrus.c
