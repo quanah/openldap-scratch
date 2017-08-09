@@ -546,7 +546,7 @@ ldap_set_option(
 		rc = LDAP_OPT_SUCCESS;
 		break;
 
-       case LDAP_OPT_BIND_ADDRESSES: {
+       case LDAP_OPT_SOCKET_BIND_ADDRESSES: {
                        const char *addr = (const char *) invalue;
                        LDAPBindAddr *lba_list = NULL;
                        rc = LDAP_OPT_SUCCESS;
