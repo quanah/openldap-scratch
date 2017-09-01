@@ -829,10 +829,16 @@ static char *safe_realloc( char **buf, int len )
 
 char * ldap_pvt_get_fqdn( char *name )
 {
-	char *fqdn, *ha_buf;
+	int rc;
+	char *fqdn;
 	char hostbuf[MAXHOSTNAMELEN+1];
+#ifdef HAVE_GETADDRINFO
+	struct addrinfo hints, *res;
+#else
+	char *ha_buf;
 	struct hostent *hp, he_buf;
-	int rc, local_h_errno;
+	int local_h_errno;
+#endif
 
 	if( name == NULL ) {
 		if( gethostname( hostbuf, MAXHOSTNAMELEN ) == 0 ) {
@@ -842,6 +848,33 @@ char * ldap_pvt_get_fqdn( char *name )
 			name = "localhost";
 		}
 	}
+
+#ifdef HAVE_GETADDRINFO
+	memset( &amp;hints, &#39;\0&#39;, sizeof( hints ) );
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags |= AI_CANONNAME;
+
+	/* most getaddrinfo(3) use non-threadsafe resolver libraries */
+	LDAP_MUTEX_LOCK(&amp;ldap_int_resolv_mutex);
+
+	rc = getaddrinfo( name, NULL, &amp;hints, &amp;res );
+
+	LDAP_MUTEX_UNLOCK(&amp;ldap_int_resolv_mutex);
+
+	if ( rc != 0 ) {
+		fqdn = LDAP_STRDUP( name );
+	} else {
+		while ( res ) {
+			if ( res-&gt;ai_canonname ) {
+				fqdn = LDAP_STRDUP ( res-&gt;ai_canonname );
+				break;
+			}
+			res = res-&gt;ai_next;
+		}
+		freeaddrinfo( res );
+	}
+#else
 
 	rc = ldap_pvt_gethostbyname_a( name,
 		&he_buf, &ha_buf, &hp, &local_h_errno );
@@ -853,6 +886,8 @@ char * ldap_pvt_get_fqdn( char *name )
 	}
 
 	LDAP_FREE( ha_buf );
+#endif
+
 	return fqdn;
 }
 
