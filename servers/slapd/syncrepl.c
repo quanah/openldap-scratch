@@ -52,13 +52,7 @@ typedef struct cookie_state {
 	int	cs_num;
 	int cs_age;
 	int cs_ref;
-	int cs_updating;
-
-	/* pending changes, not yet committed */
-	ldap_pvt_thread_mutex_t	cs_pmutex;
-	struct berval *cs_pvals;
-	int *cs_psids;
-	int	cs_pnum;
+	int cs_active;
 } cookie_state;
 
 #define	SYNCDATA_DEFAULT	0	/* entries are plain LDAP entries */
@@ -535,7 +529,6 @@ check_syncprov(
 	op->o_req_dn = e.e_name;
 	op->o_req_ndn = e.e_nname;
 
-	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 	i = backend_operational( op, &rs );
 	if ( i == LDAP_SUCCESS && a.a_nvals ) {
 		int num = a.a_numvals;
@@ -609,7 +602,6 @@ check_syncprov(
 		ch_free( si->si_syncCookie.sids );
 		slap_reparse_sync_cookie( &si->si_syncCookie, op->o_tmpmemctx );
 	}
-	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 	return changed;
 }
 
@@ -690,7 +682,6 @@ do_syncrep1(
 			/* ctxcsn wasn't parsed yet, do it now */
 			slap_parse_sync_cookie( &si->si_syncCookie, NULL );
 		} else {
-			ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 			if ( !si->si_cookieState->cs_num ) {
 				/* get contextCSN shadow replica from database */
 				BerVarray csn = NULL;
@@ -717,7 +708,6 @@ do_syncrep1(
 				if ( ber_bvarray_dup_x( &si->si_syncCookie.ctxcsn,
 					si->si_cookieState->cs_vals, NULL )) {
 					rc = LDAP_NO_MEMORY;
-					ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 					goto done;
 				}
 				si->si_syncCookie.numcsns = si->si_cookieState->cs_num;
@@ -726,7 +716,6 @@ do_syncrep1(
 				for ( i=0; i<si->si_syncCookie.numcsns; i++ )
 					si->si_syncCookie.sids[i] = si->si_cookieState->cs_sids[i];
 			}
-			ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 		}
 
 		ch_free( si->si_syncCookie.octet_str.bv_val );
@@ -856,7 +845,7 @@ do_syncrep2(
 	while ( ( rc = ldap_result( si->si_ld, si->si_msgid, LDAP_MSG_ONE,
 		tout_p, &msg ) ) > 0 )
 	{
-		int				match, punlock, syncstate;
+		int				match, syncstate;
 		struct berval	*retdata, syncUUID[2], cookie = BER_BVNULL;
 		char			*retoid;
 		LDAPControl		**rctrls = NULL, *rctrlp = NULL;
@@ -930,7 +919,6 @@ do_syncrep2(
 				rc = -1;
 				goto done;
 			}
-			punlock = -1;
 			if ( ber_peek_tag( ber, &len ) == LDAP_TAG_SYNC_COOKIE ) {
 				if ( ber_scanf( ber, /*"{"*/ "m}", &cookie ) != LBER_ERROR ) {
 
@@ -948,7 +936,6 @@ do_syncrep2(
 					if ( syncCookie.ctxcsn ) {
 						int i, sid = slap_parse_csn_sid( syncCookie.ctxcsn );
 						check_syncprov( op, si );
-						ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 						for ( i =0; i<si->si_cookieState->cs_num; i++ ) {
 #ifdef CHATTY_SYNCLOG
 							Debug( LDAP_DEBUG_SYNC, "do_syncrep2: %s CSN for sid %d: %s\n",
@@ -963,7 +950,6 @@ do_syncrep2(
 									Debug( LDAP_DEBUG_SYNC, "do_syncrep2: %s CSN too old, ignoring %s (%s)\n",
 										si->si_ridtxt, syncCookie.ctxcsn->bv_val, bdn.bv_val );
 									si->si_too_old = 1;
-									ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 									ldap_controls_free( rctrls );
 									rc = 0;
 									goto done;
@@ -972,45 +958,6 @@ do_syncrep2(
 								break;
 							}
 						}
-						ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
-
-						/* check pending CSNs too */
-						while ( ldap_pvt_thread_mutex_trylock( &si->si_cookieState->cs_pmutex )) {
-							if ( slapd_shutdown ) {
-								rc = -2;
-								goto done;
-							}
-							if ( !ldap_pvt_thread_pool_pausecheck( &connection_pool ))
-								ldap_pvt_thread_yield();
-						}
-
-						for ( i =0; i<si->si_cookieState->cs_pnum; i++ ) {
-							if ( sid < si->si_cookieState->cs_psids[i] )
-								break;
-							if ( si->si_cookieState->cs_psids[i] == sid ) {
-								if ( ber_bvcmp( syncCookie.ctxcsn, &si->si_cookieState->cs_pvals[i] ) <= 0 ) {
-									ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_pmutex );
-									bdn.bv_val[bdn.bv_len] = '\0';
-									Debug( LDAP_DEBUG_SYNC, "do_syncrep2: %s CSN pending, ignoring %s (%s)\n",
-										si->si_ridtxt, syncCookie.ctxcsn->bv_val, bdn.bv_val );
-									ldap_controls_free( rctrls );
-									rc = 0;
-									goto done;
-								}
-								ber_bvreplace( &si->si_cookieState->cs_pvals[i],
-									syncCookie.ctxcsn );
-								break;
-							}
-						}
-						/* new SID, add it */
-						if ( i == si->si_cookieState->cs_pnum ||
-							sid != si->si_cookieState->cs_psids[i] ) {
-							slap_insert_csn_sids(
-								(struct sync_cookie *)&si->si_cookieState->cs_pvals,
-								i, sid, syncCookie.ctxcsn );
-						}
-						assert( punlock < 0 );
-						punlock = i;
 					} else if (si->si_too_old) {
 						bdn.bv_val[bdn.bv_len] = '\0';
 						Debug( LDAP_DEBUG_SYNC, "do_syncrep2: %s CSN too old, ignoring (%s)\n",
@@ -1059,24 +1006,6 @@ do_syncrep2(
 				{
 					rc = syncrepl_updateCookie( si, op, &syncCookie );
 				}
-			}
-			if ( punlock >= 0 ) {
-				/* on failure, revert pending CSN */
-				if ( rc != LDAP_SUCCESS ) {
-					int i;
-					ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
-					for ( i = 0; i<si->si_cookieState->cs_num; i++ ) {
-						if ( si->si_cookieState->cs_sids[i] == si->si_cookieState->cs_psids[punlock] ) {
-							ber_bvreplace( &si->si_cookieState->cs_pvals[punlock],
-								&si->si_cookieState->cs_vals[i] );
-							break;
-						}
-					}
-					if ( i == si->si_cookieState->cs_num )
-						si->si_cookieState->cs_pvals[punlock].bv_val[0] = '\0';
-					ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
-				}
-				ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_pmutex );
 			}
 			ldap_controls_free( rctrls );
 			if ( modlist ) {
@@ -1498,7 +1427,7 @@ do_syncrepl(
 	Debug( LDAP_DEBUG_TRACE, "=>do_syncrepl %s\n", si->si_ridtxt, 0, 0 );
 
 	/* Don't get stuck here while a pause is initiated */
-	while ( ldap_pvt_thread_mutex_trylock( &si->si_mutex )) {
+	while ( ldap_pvt_thread_mutex_trylock( &si->si_cookieState->cs_mutex )) {
 		if ( slapd_shutdown )
 			return NULL;
 		if ( !ldap_pvt_thread_pool_pausecheck( &connection_pool ))
@@ -1508,14 +1437,35 @@ do_syncrepl(
 	si->si_too_old = 0;
 
 	if ( si->si_ctype < 1 ) {
+		ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 		goto deleted;
 	}
+
+	while (si->si_cookieState->cs_active) {
+		ldap_pvt_thread_pool_idle( &connection_pool );
+		ldap_pvt_thread_cond_wait( &si->si_cookieState->cs_cond, &si->si_cookieState->cs_mutex );
+		ldap_pvt_thread_pool_unidle( &connection_pool );
+		if ( slapd_shutdown ) {
+			ldap_pvt_thread_cond_signal( &si->si_cookieState->cs_cond );
+			ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
+			return NULL;
+		}
+	}
+	si->si_cookieState->cs_active = 1;
+	ldap_pvt_thread_mutex_lock( &si->si_mutex );
+	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
+
 
 	switch( abs( si->si_type ) ) {
 	case LDAP_SYNC_REFRESH_ONLY:
 	case LDAP_SYNC_REFRESH_AND_PERSIST:
 		break;
 	default:
+leave:
+		ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
+		si->si_cookieState->cs_active = 0;
+		ldap_pvt_thread_cond_signal( &si->si_cookieState->cs_cond );
+		ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 		ldap_pvt_thread_mutex_unlock( &si->si_mutex );
 		return NULL;
 	}
@@ -1529,8 +1479,7 @@ do_syncrepl(
 			ldap_unbind_ext( si->si_ld, NULL, NULL );
 			si->si_ld = NULL;
 		}
-		ldap_pvt_thread_mutex_unlock( &si->si_mutex );
-		return NULL;
+		goto leave;
 	}
 
 	connection_fake_init( &conn, &opbuf, ctx );
@@ -1702,6 +1651,10 @@ deleted:
 	}
 
 	ldap_pvt_thread_mutex_unlock( &slapd_rq.rq_mutex );
+	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
+	si->si_cookieState->cs_active = 0;
+	ldap_pvt_thread_cond_signal( &si->si_cookieState->cs_cond );
+	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 	ldap_pvt_thread_mutex_unlock( &si->si_mutex );
 
 	if ( rc ) {
@@ -2116,7 +2069,6 @@ syncrepl_op_modify( Operation *op, SlapReply *rs )
 	{
 		int i, sid;
 		sid = slap_parse_csn_sid( &mod->sml_nvalues[0] );
-		ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 		for ( i =0; i<si->si_cookieState->cs_num; i++ ) {
 #ifdef CHATTY_SYNCLOG
 			Debug( LDAP_DEBUG_SYNC, "syncrepl_op_modify: %s CSN for sid %d: %s\n",
@@ -2129,7 +2081,6 @@ syncrepl_op_modify( Operation *op, SlapReply *rs )
 				if ( ber_bvcmp( &mod->sml_nvalues[0], &si->si_cookieState->cs_vals[i] ) <= 0 ) {
 					Debug( LDAP_DEBUG_SYNC, "syncrepl_op_modify: %s entryCSN too old, ignoring %s (%s)\n",
 						si->si_ridtxt, mod->sml_nvalues[0].bv_val, op->o_req_dn.bv_val );
-					ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 					slap_graduate_commit_csn( op );
 					/* tell accesslog this was a failure */
 					rs->sr_err = LDAP_TYPE_OR_VALUE_EXISTS;
@@ -2137,7 +2088,6 @@ syncrepl_op_modify( Operation *op, SlapReply *rs )
 				}
 			}
 		}
-		ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 	}
 
 	rc = overlay_entry_get_ov( op, &op->o_req_ndn, NULL, NULL, 0, &e, on );
@@ -3141,13 +3091,11 @@ retry_add:;
 					ber_bvarray_free( si->si_syncCookie.ctxcsn );
 					si->si_syncCookie.ctxcsn = NULL;
 					entry_free( entry );
-					ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 					ber_bvarray_free( si->si_cookieState->cs_vals );
 					ch_free( si->si_cookieState->cs_sids );
 					si->si_cookieState->cs_vals = NULL;
 					si->si_cookieState->cs_sids = 0;
 					si->si_cookieState->cs_num = 0;
-					ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 					return LDAP_NO_SUCH_OBJECT;
 				}
 				rc = syncrepl_add_glue( op, entry );
@@ -3954,10 +3902,6 @@ syncrepl_updateCookie(
 	mod.sml_nvalues = NULL;
 	mod.sml_next = NULL;
 
-	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
-	while ( si->si_cookieState->cs_updating )
-		ldap_pvt_thread_cond_wait( &si->si_cookieState->cs_cond, &si->si_cookieState->cs_mutex );
-
 #ifdef CHECK_CSN
 	for ( i=0; i<syncCookie->numcsns; i++ ) {
 		assert( !syn->ssyn_validate( syn, syncCookie->ctxcsn+i ));
@@ -4014,14 +3958,10 @@ syncrepl_updateCookie(
 	}
 	/* Should never happen, ITS#5065 */
 	if ( BER_BVISNULL( &first ) || !changed ) {
-		ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 		ber_bvarray_free( sc.ctxcsn );
 		ch_free( sc.sids );
 		return 0;
 	}
-
-	si->si_cookieState->cs_updating = 1;
-	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 
 	op->o_bd = si->si_wbe;
 	slap_queue_csn( op, &first );
@@ -4061,7 +4001,6 @@ syncrepl_updateCookie(
 
 	op->orm_no_opattrs = 0;
 	op->o_dont_replicate = 0;
-	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
 
 	if ( rs_modify.sr_err == LDAP_SUCCESS ) {
 		slap_sync_cookie_free( &si->si_syncCookie, 0 );
@@ -4093,10 +4032,6 @@ syncrepl_updateCookie(
 		assert( !syn->ssyn_validate( syn, si->si_cookieState->cs_vals+i ));
 	}
 #endif
-
-	si->si_cookieState->cs_updating = 0;
-	ldap_pvt_thread_cond_broadcast( &si->si_cookieState->cs_cond );
-	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 
 	op->o_bd = be;
 	op->o_tmpfree( op->o_csn.bv_val, op->o_tmpmemctx );
@@ -4762,9 +4697,6 @@ syncinfo_free( syncinfo_t *sie, int free_all )
 				ber_bvarray_free( sie->si_cookieState->cs_vals );
 				ldap_pvt_thread_cond_destroy( &sie->si_cookieState->cs_cond );
 				ldap_pvt_thread_mutex_destroy( &sie->si_cookieState->cs_mutex );
-				ch_free( sie->si_cookieState->cs_psids );
-				ber_bvarray_free( sie->si_cookieState->cs_pvals );
-				ldap_pvt_thread_mutex_destroy( &sie->si_cookieState->cs_pmutex );
 				ch_free( sie->si_cookieState );
 			}
 		}
@@ -5566,7 +5498,6 @@ add_syncrepl(
 		} else {
 			si->si_cookieState = ch_calloc( 1, sizeof( cookie_state ));
 			ldap_pvt_thread_mutex_init( &si->si_cookieState->cs_mutex );
-			ldap_pvt_thread_mutex_init( &si->si_cookieState->cs_pmutex );
 			ldap_pvt_thread_cond_init( &si->si_cookieState->cs_cond );
 
 			c->be->be_syncinfo = si;
