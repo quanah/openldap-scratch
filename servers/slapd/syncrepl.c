@@ -1453,7 +1453,7 @@ do_syncrepl(
 	}
 	si->si_cookieState->cs_active = 1;
 	ldap_pvt_thread_mutex_lock( &si->si_mutex );
-	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
+/*	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex ); */
 
 
 	switch( abs( si->si_type ) ) {
@@ -1462,7 +1462,7 @@ do_syncrepl(
 		break;
 	default:
 leave:
-		ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
+/*		ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex ); */
 		si->si_cookieState->cs_active = 0;
 		ldap_pvt_thread_cond_signal( &si->si_cookieState->cs_cond );
 		ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
@@ -1651,11 +1651,11 @@ deleted:
 	}
 
 	ldap_pvt_thread_mutex_unlock( &slapd_rq.rq_mutex );
-	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex );
+/*	ldap_pvt_thread_mutex_lock( &si->si_cookieState->cs_mutex ); */
 	si->si_cookieState->cs_active = 0;
 	ldap_pvt_thread_cond_signal( &si->si_cookieState->cs_cond );
-	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 	ldap_pvt_thread_mutex_unlock( &si->si_mutex );
+	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
 
 	if ( rc ) {
 		if ( fail == RETRYNUM_TAIL ) {
