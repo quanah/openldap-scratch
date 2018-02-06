@@ -179,6 +179,9 @@ if test $RC != 0 ; then
 fi
 echo "done"
 
+echo "Sleeping 2 minutes to allow databases to sync..."
+sleep 120
+
 echo "Comparing resulting databases..."
 
 n=1
