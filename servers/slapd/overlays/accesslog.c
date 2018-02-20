@@ -1531,6 +1531,10 @@ static int accesslog_response(Operation *op, SlapReply *rs) {
 	if ( li->li_success && rs->sr_err != LDAP_SUCCESS )
 		goto done;
 
+	Debug( LDAP_DEBUG_SYNC,
+		"accesslog_op_mod: tag: %x, logging dn: %s\n",
+		op->o_tag, op->o_req_dn.bv_val, 0);
+
 	e = accesslog_entry( op, rs, logop, &op2 );
 
 	attr_merge_one( e, ad_reqDN, &op->o_req_dn, &op->o_req_ndn );
@@ -1957,6 +1961,10 @@ accesslog_op_mod( Operation *op, SlapReply *rs )
 	int logop;
 	int doit = 0;
 
+	Debug( LDAP_DEBUG_SYNC,
+		"accesslog_op_mod: tag: %x, odr: %d, dn: %s\n",
+		op->o_tag, op->o_dont_replicate, op->o_req_dn.bv_val);
+
 	/* These internal ops are not logged */
 	if ( op->o_dont_replicate ) {
 		/* Let contextCSN updates from syncrepl thru; the underlying
@@ -2034,6 +2042,10 @@ accesslog_op_mod( Operation *op, SlapReply *rs )
 			}
 			op->o_bd->bd_info = (BackendInfo *)on;
 		}
+	} else {
+		Debug( LDAP_DEBUG_SYNC,
+			"accesslog_op_mod: tag: %x, skipped dn: %s\n",
+			op->o_tag, op->o_req_dn.bv_val, 0);
 	}
 	return SLAP_CB_CONTINUE;
 }
