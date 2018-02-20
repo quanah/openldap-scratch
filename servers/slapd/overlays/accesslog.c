@@ -1883,6 +1883,12 @@ static int accesslog_response(Operation *op, SlapReply *rs) {
 	}
 
 	op2.o_bd->be_add( &op2, &rs2 );
+	if ( rs2.sr_err != LDAP_SUCCESS ) {
+		Debug( LDAP_DEBUG_SYNC,
+			"accesslog_op_mod: got result 0x%x adding log entry %s\n",
+			rs2.sr_err, op2.o_req_dn.bv_val, 0 );
+	}
+
 	if ( e == op2.ora_e ) entry_free( e );
 	e = NULL;
 
