@@ -181,6 +181,9 @@ enable verbose mode.
 write syncrepl context information.
 After all entries are added, the contextCSN
 will be updated with the greatest CSN in the database.
+Note: The input LDIF must be from an offline slapcat(8) if the underlying
+database is using back\-bdb(5) or back\-hdb(5).  back\-mdb(5) does not have
+this limitation.
 .SH LIMITATIONS
 Your
 .BR slapd (8)
