@@ -44,20 +44,6 @@ typedef DES_key_schedule des_context[1];
 #define des_failed(encrypted) 0
 #define des_finish(key, schedule) 
 
-#elif defined(HAVE_MOZNSS)
-/*
-  hack hack hack
-  We need to define this here so that nspr/obsolete/protypes.h will not be included
-  if that file is included, it will create a uint32 typedef that will cause the
-  one in lutil_sha1.h to blow up
-*/
-#define PROTYPES_H 1
-#	include <nss/pk11pub.h>
-typedef PK11SymKey *des_key;
-typedef unsigned char des_data_block[8];
-typedef PK11Context *des_context[1];
-#define DES_ENCRYPT CKA_ENCRYPT
-
 #endif
 
 #endif /* SLAPD_LMHASH */
@@ -668,91 +654,6 @@ des_set_key_and_parity( des_key *key, unsigned char *keyData)
 {
     memcpy(key, keyData, 8);
     DES_set_odd_parity( key );
-}
-
-
-#elif defined(HAVE_MOZNSS)
-
-/*
- * implement MozNSS wrappers for the openSSL calls 
- */
-static void
-des_set_key_and_parity( des_key *key, unsigned char *keyData)
-{
-    SECItem keyDataItem;
-    PK11SlotInfo *slot;
-    *key = NULL;
-
-    keyDataItem.data = keyData;
-    keyDataItem.len = 8;
-
-    slot = PK11_GetBestSlot(CKM_DES_ECB, NULL);
-    if (slot == NULL) {
-	return;
-    }
-
-    /* NOTE: this will not work in FIPS mode. In order to make lmhash
-     * work in fips mode we need to define a LMHASH pbe mechanism and
-     * do the fulll key derivation inside the token */
-    *key = PK11_ImportSymKey(slot, CKM_DES_ECB, PK11_OriginGenerated, 
-		CKA_ENCRYPT, &keyDataItem, NULL);
-}
-
-static void
-DES_set_key_unchecked( des_key *key, des_context ctxt )
-{
-    ctxt[0] = NULL;
-
-    /* handle error conditions from previous call */
-    if (!*key) {
-	return;
-    }
-
-    ctxt[0] = PK11_CreateContextBySymKey(CKM_DES_ECB, CKA_ENCRYPT, *key, NULL);
-}
-
-static void
-DES_ecb_encrypt( des_data_block *plain, des_data_block *encrypted,
-			des_context ctxt, int op)
-{
-    SECStatus rv;
-    int size;
-
-    if (ctxt[0] == NULL) {
-	/* need to fail here...  */
-	memset(encrypted, 0, sizeof(des_data_block));
-	return;
-    }
-    rv = PK11_CipherOp(ctxt[0], (unsigned char *)&encrypted[0], 
-			&size, sizeof(des_data_block),
-			(unsigned char *)&plain[0], sizeof(des_data_block));
-    if (rv != SECSuccess) {
-	/* signal failure */
-	memset(encrypted, 0, sizeof(des_data_block));
-	return;
-    }
-    return;
-}
-
-static int
-des_failed(des_data_block *encrypted)
-{
-   static const des_data_block zero = { 0 };
-   return memcmp(encrypted, zero, sizeof(zero)) == 0;
-}
-
-static void
-des_finish(des_key *key, des_context ctxt)
-{
-     if (*key) {
-	PK11_FreeSymKey(*key);
-	*key = NULL;
-     }
-     if (ctxt[0]) {
-	PK11_Finalize(ctxt[0]);
-	PK11_DestroyContext(ctxt[0], PR_TRUE);
-	ctxt[0] = NULL;
-     }
 }
 
 #endif
